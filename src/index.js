@@ -6,6 +6,8 @@ const path = require('path');
 const bodyParser = require('body-parser');
 const session = require('express-session');
 const flash = require('connect-flash');
+const expressLayouts = require('express-ejs-layouts');
+const Database = require('./utils/db');
 
 // Carregando variáveis de ambiente
 dotenv.config();
@@ -36,12 +38,20 @@ app.use(
 // Configuração de flash messages
 app.use(flash());
 
+// Tornando mensagens flash disponíveis para todas as views
+app.use((req, res, next) => {
+  res.locals.messages = req.flash();
+  next();
+});
+
 // Configurando pasta de arquivos estáticos
 app.use(express.static(path.join(__dirname, '../public')));
 
 // Configurando o motor de visualização
+app.use(expressLayouts);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+app.set('layout', 'layout');
 
 // Rotas da API
 app.use('/api/auth', authRoutes);
@@ -51,16 +61,23 @@ app.use('/dashboard', dashboardRoutes);
 
 // Rota principal
 app.get('/', (req, res) => {
-  res.render('index');
+  res.render('index', { title: 'GitHub Billing App' });
 });
 
 // Manipulação de erros 404
 app.use((req, res) => {
-  res.status(404).render('404');
+  res.status(404).render('404', { title: 'Página não encontrada' });
 });
 
-// Inicialização do servidor
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// Conectar ao banco de dados e iniciar o servidor
+Database.connect()
+  .then(() => {
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch(err => {
+    console.error('Falha ao iniciar o aplicativo:', err);
+    process.exit(1);
+  });

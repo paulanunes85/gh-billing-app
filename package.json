@@ -1,14 +1,24 @@
 {
   "name": "gh-billing-app",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Aplicação para gerenciar e monitorar o faturamento do GitHub Copilot para organizações",
+  "main": "src/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint .",
+    "seed": "node src/utils/seed.js"
   },
-  "keywords": [],
+  "keywords": [
+    "github",
+    "copilot",
+    "billing",
+    "dashboard",
+    "nodejs"
+  ],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "axios": "^1.8.1",
     "body-parser": "^1.20.3",
@@ -27,6 +37,7 @@
     "morgan": "^1.10.0"
   },
   "devDependencies": {
+    "eslint": "^8.56.0",
     "nodemon": "^3.1.9"
   }
 }

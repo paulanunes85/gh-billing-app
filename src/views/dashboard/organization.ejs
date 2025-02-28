@@ -1,0 +1,267 @@
+<%- include('../partials/header', {title: `Dashboard - ${organization.name}`}) %>
+
+<div class="container">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/dashboard">Dashboard</a></li>
+            <li class="breadcrumb-item active" aria-current="page"><%= organization.name %></li>
+        </ol>
+    </nav>
+
+    <div class="d-flex align-items-center mb-4">
+        <% if (organization.avatarUrl) { %>
+            <img src="<%= organization.avatarUrl %>" alt="<%= organization.name %>" class="org-avatar me-3" style="width: 80px; height: 80px; border-radius: 50%;">
+        <% } else { %>
+            <div class="org-avatar-placeholder me-3" style="width: 80px; height: 80px; border-radius: 50%; background-color: #0366d6; color: white; display: flex; align-items: center; justify-content: center; font-size: 2rem;">
+                <%= organization.name.charAt(0).toUpperCase() %>
+            </div>
+        <% } %>
+        <div>
+            <h1 class="mb-0"><%= organization.name %></h1>
+            <p class="text-muted">@<%= organization.login %></p>
+        </div>
+        <div class="ms-auto">
+            <button class="btn btn-outline-success sync-billing" data-org-id="<%= organization._id %>">
+                <i class="fas fa-sync-alt me-1"></i>Sincronizar Faturamento
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-info text-white mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Total Faturado</h5>
+                    <p class="card-text display-6">$<%= stats.totalAmount.toFixed(2) %></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Valor Pago</h5>
+                    <p class="card-text display-6">$<%= stats.paidAmount.toFixed(2) %></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Valor Pendente</h5>
+                    <p class="card-text display-6">$<%= stats.pendingAmount.toFixed(2) %></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-primary text-white mb-3">
+                <div class="card-body">
+                    <h5 class="card-title">Média Mensal</h5>
+                    <p class="card-text display-6">$<%= stats.monthlyAverage.toFixed(2) %></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Histórico de Faturamento -->
+        <div class="col-md-7">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-history me-2"></i>Histórico de Faturamento</h5>
+                </div>
+                <div class="card-body">
+                    <% if (billingHistory && billingHistory.length > 0) { %>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Período</th>
+                                        <th>Valor</th>
+                                        <th>Status</th>
+                                        <th>Data de Faturamento</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% billingHistory.forEach(function(billing) { %>
+                                        <tr>
+                                            <td><%= billing.month %> <%= billing.year %></td>
+                                            <td>$<%= billing.totalAmount.toFixed(2) %></td>
+                                            <td>
+                                                <% if (billing.status === 'paid') { %>
+                                                    <span class="badge bg-success">Pago</span>
+                                                <% } else if (billing.status === 'pending') { %>
+                                                    <span class="badge bg-warning">Pendente</span>
+                                                <% } else { %>
+                                                    <span class="badge bg-danger">Atrasado</span>
+                                                <% } %>
+                                            </td>
+                                            <td><%= billing.billingDate ? new Date(billing.billingDate).toLocaleDateString() : 'N/A' %></td>
+                                            <td>
+                                                <a href="/api/billing/<%= billing._id %>" class="btn btn-sm btn-info">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <% if (billing.status !== 'paid') { %>
+                                                    <button class="btn btn-sm btn-success mark-paid" data-billing-id="<%= billing._id %>">
+                                                        <i class="fas fa-check"></i> Pago
+                                                    </button>
+                                                <% } %>
+                                            </td>
+                                        </tr>
+                                    <% }); %>
+                                </tbody>
+                            </table>
+                        </div>
+                    <% } else { %>
+                        <div class="alert alert-info">
+                            Nenhum registro de faturamento encontrado para esta organização.
+                            <button class="btn btn-sm btn-primary sync-billing mt-2" data-org-id="<%= organization._id %>">
+                                <i class="fas fa-sync-alt me-1"></i>Sincronizar Agora
+                            </button>
+                        </div>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Gráfico de Tendência -->
+        <div class="col-md-5">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Tendência de Faturamento</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="trendChart" style="height: 300px;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Configuração do gráfico de tendência
+    const trendCtx = document.getElementById('trendChart').getContext('2d');
+    
+    // Preparar dados do histórico de faturamento para o gráfico
+    const billingData = <%= JSON.stringify(billingHistory || []) %>;
+    
+    // Ordenar por data (ano e mês)
+    billingData.sort((a, b) => {
+        if (a.year !== b.year) return a.year - b.year;
+        const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        return months.indexOf(a.month) - months.indexOf(b.month);
+    });
+    
+    const labels = billingData.map(item => `${item.month.substring(0, 3)} ${item.year}`);
+    const amounts = billingData.map(item => item.totalAmount);
+    
+    const trendChart = new Chart(trendCtx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Valor Faturado ($)',
+                data: amounts,
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 2,
+                tension: 0.1,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value;
+                        }
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+    
+    // Event listener para botões de marcar como pago
+    document.querySelectorAll('.mark-paid').forEach(button => {
+        button.addEventListener('click', function() {
+            const billingId = this.getAttribute('data-billing-id');
+            if (confirm('Confirmar marcação como pago?')) {
+                updateBillingStatus(billingId, 'paid');
+            }
+        });
+    });
+    
+    // Event listener para botões de sincronizar faturamento
+    document.querySelectorAll('.sync-billing').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const orgId = this.getAttribute('data-org-id');
+            syncBillingData(orgId);
+        });
+    });
+});
+
+// Função para atualizar status do faturamento
+async function updateBillingStatus(billingId, status) {
+    try {
+        const response = await fetch(`/api/billing/${billingId}/status`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ status })
+        });
+        
+        if (response.ok) {
+            window.location.reload();
+        } else {
+            alert('Erro ao atualizar status. Tente novamente.');
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+        alert('Erro ao atualizar status. Tente novamente.');
+    }
+}
+
+// Função para sincronizar dados de faturamento
+async function syncBillingData(orgId) {
+    try {
+        const loadingBtn = document.querySelector(`.sync-billing[data-org-id="${orgId}"]`);
+        const originalContent = loadingBtn.innerHTML;
+        loadingBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando...';
+        loadingBtn.disabled = true;
+        
+        const response = await fetch(`/api/billing/sync/${orgId}`, {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            alert('Dados de faturamento sincronizados com sucesso!');
+            window.location.reload();
+        } else {
+            alert('Erro ao sincronizar dados de faturamento. Tente novamente.');
+            loadingBtn.innerHTML = originalContent;
+            loadingBtn.disabled = false;
+        }
+    } catch (error) {
+        console.error('Erro:', error);
+        alert('Erro ao sincronizar dados de faturamento. Tente novamente.');
+        const loadingBtn = document.querySelector(`.sync-billing[data-org-id="${orgId}"]`);
+        loadingBtn.innerHTML = '<i class="fas fa-sync-alt me-1"></i>Sincronizar Faturamento';
+        loadingBtn.disabled = false;
+    }
+}
+</script>
+
+<%- include('../partials/footer') %>

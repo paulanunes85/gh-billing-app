@@ -1,0 +1,162 @@
+/* Estilos Gerais */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+}
+
+/* Estilos para Avatares */
+.avatar-mini {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.org-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.org-avatar-placeholder {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #0366d6;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+/* Estilos para Cards */
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+    background-color: rgba(0, 0, 0, 0.03);
+    font-weight: 600;
+}
+
+.dashboard-container .card-body {
+    padding: 1.5rem;
+}
+
+/* Estilos para Botões */
+.btn {
+    border-radius: 0.25rem;
+}
+
+.btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Estilo para Tabelas */
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #495057;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+/* Estilos para Gráficos */
+canvas {
+    max-width: 100%;
+}
+
+/* Estilizando breadcrumbs */
+.breadcrumb {
+    background-color: transparent;
+    padding: 0.75rem 0;
+}
+
+.breadcrumb-item a {
+    color: #0366d6;
+    text-decoration: none;
+}
+
+.breadcrumb-item a:hover {
+    text-decoration: underline;
+}
+
+/* Estilos para o Footer */
+.footer {
+    margin-top: 2rem;
+    padding: 1rem 0;
+    border-top: 1px solid #e9ecef;
+}
+
+/* Animações */
+.sync-billing .fa-sync-alt, 
+.sync-billing .fa-sync {
+    transition: transform 0.4s ease;
+}
+
+.sync-billing:hover .fa-sync-alt,
+.sync-billing:hover .fa-sync {
+    transform: rotate(180deg);
+}
+
+/* Página Inicial */
+.home-feature-card {
+    height: 100%;
+    text-align: center;
+    padding: 2rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.home-feature-card:hover {
+    background-color: #f8f9fa;
+    transform: translateY(-10px);
+}
+
+.home-feature-card i {
+    margin-bottom: 1rem;
+}
+
+/* Dashboard */
+.stats-card {
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.stats-card .card-body {
+    padding: 1.5rem;
+}
+
+.stats-card .card-title {
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.stats-card .display-6 {
+    font-weight: 600;
+}
+
+/* Responsividade para telas pequenas */
+@media (max-width: 768px) {
+    .display-6 {
+        font-size: 1.5rem;
+    }
+    
+    .dashboard-container .row > div {
+        margin-bottom: 1rem;
+    }
+}
