@@ -29,6 +29,8 @@ class BillingService {
       // Informações do mês atual
       const currentMonth = moment().format('MMMM');
       const currentYear = moment().year();
+      const periodStart = moment().startOf('month');
+      const periodEnd = moment().endOf('month');
       
       // Verifica se já existe registro para este mês/ano
       let billing = await Billing.findOne({
@@ -47,16 +49,22 @@ class BillingService {
         // Cria um novo registro se não existir
         billing = new Billing({
           organization: orgId,
+          businessUnit: organization.businessUnit,
+          costCenter: organization.costCenter,
           month: currentMonth,
           year: currentYear,
           totalAmount,
           currency: billingData.currency || 'USD',
           usageBreakdown,
-          billingDate: moment().endOf('month').toDate(),
+          billingPeriodStart: periodStart.toDate(),
+          billingPeriodEnd: periodEnd.toDate(),
+          billingDate: periodEnd.toDate(),
           status: 'pending'
         });
       } else {
         // Atualiza registro existente
+        billing.businessUnit = organization.businessUnit;
+        billing.costCenter = organization.costCenter;
         billing.totalAmount = totalAmount;
         billing.currency = billingData.currency || billing.currency;
         billing.usageBreakdown = usageBreakdown;
@@ -156,76 +164,149 @@ class BillingService {
   /**
    * Gera relatórios de faturamento consolidados para todas as organizações
    */
-  async generateBillingReport(startDate, endDate) {
+  async generateBillingReport(startDate, endDate, businessUnit = null) {
     try {
       const query = {};
       
       if (startDate && endDate) {
-        query.createdAt = {
-          $gte: new Date(startDate),
-          $lte: new Date(endDate)
-        };
+        query.billingPeriodStart = { $gte: new Date(startDate) };
+        query.billingPeriodEnd = { $lte: new Date(endDate) };
+      }
+
+      if (businessUnit) {
+        query.businessUnit = businessUnit;
       }
       
       const billings = await Billing.find(query)
-        .populate('organization', 'name login');
+        .populate('organization', 'name login businessUnit costCenter');
       
-      // Processamento de relatório
       const report = {
         totalBilled: 0,
         totalPaid: 0,
         totalPending: 0,
+        businessUnitSummary: {},
         organizationSummary: {},
         billingPeriods: {}
       };
       
       billings.forEach(billing => {
         const orgName = billing.organization.name;
+        const businessUnit = billing.businessUnit;
         const period = `${billing.month} ${billing.year}`;
         
-        // Soma total
+        // Totais gerais
         report.totalBilled += billing.totalAmount;
-        
         if (billing.status === 'paid') {
           report.totalPaid += billing.totalAmount;
         } else {
           report.totalPending += billing.totalAmount;
         }
         
+        // Resumo por Business Unit
+        if (!report.businessUnitSummary[businessUnit]) {
+          report.businessUnitSummary[businessUnit] = {
+            totalAmount: 0,
+            organizations: new Set(),
+            costBreakdown: []
+          };
+        }
+        report.businessUnitSummary[businessUnit].totalAmount += billing.totalAmount;
+        report.businessUnitSummary[businessUnit].organizations.add(orgName);
+        report.businessUnitSummary[businessUnit].costBreakdown.push({
+          period,
+          organization: orgName,
+          amount: billing.totalAmount,
+          status: billing.status
+        });
+        
         // Resumo por organização
         if (!report.organizationSummary[orgName]) {
           report.organizationSummary[orgName] = {
             totalAmount: 0,
+            businessUnit,
+            costCenter: billing.costCenter,
             periods: []
           };
         }
-        
         report.organizationSummary[orgName].totalAmount += billing.totalAmount;
         report.organizationSummary[orgName].periods.push({
           period,
           amount: billing.totalAmount,
-          status: billing.status
+          status: billing.status,
+          usageDetails: billing.usageBreakdown
         });
         
         // Resumo por período
         if (!report.billingPeriods[period]) {
           report.billingPeriods[period] = {
             totalAmount: 0,
+            byBusinessUnit: {}
+          };
+        }
+        report.billingPeriods[period].totalAmount += billing.totalAmount;
+        
+        if (!report.billingPeriods[period].byBusinessUnit[businessUnit]) {
+          report.billingPeriods[period].byBusinessUnit[businessUnit] = {
+            amount: 0,
             organizations: []
           };
         }
-        
-        report.billingPeriods[period].totalAmount += billing.totalAmount;
-        report.billingPeriods[period].organizations.push({
+        report.billingPeriods[period].byBusinessUnit[businessUnit].amount += billing.totalAmount;
+        report.billingPeriods[period].byBusinessUnit[businessUnit].organizations.push({
           name: orgName,
           amount: billing.totalAmount,
           status: billing.status
         });
       });
+
+      // Converte Sets para Arrays no resumo de business units
+      Object.keys(report.businessUnitSummary).forEach(bu => {
+        report.businessUnitSummary[bu].organizations = 
+          Array.from(report.businessUnitSummary[bu].organizations);
+      });
       
       return report;
     } catch (error) {
       console.error('Erro ao gerar relatório de faturamento:', error);
+      throw error;
+    }
+  }
+
+  async getBusinessUnitsSummary() {
+    try {
+      const summary = await Billing.aggregate([
+        {
+          $group: {
+            _id: '$businessUnit',
+            totalAmount: { $sum: '$totalAmount' },
+            paidAmount: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'paid'] }, '$totalAmount', 0]
+              }
+            },
+            pendingAmount: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'pending'] }, '$totalAmount', 0]
+              }
+            },
+            organizationCount: { $addToSet: '$organization' }
+          }
+        },
+        {
+          $project: {
+            businessUnit: '$_id',
+            totalAmount: 1,
+            paidAmount: 1,
+            pendingAmount: 1,
+            organizationCount: { $size: '$organizationCount' }
+          }
+        },
+        { $sort: { totalAmount: -1 } }
+      ]);
+
+      return summary;
+    } catch (error) {
+      console.error('Erro ao gerar resumo por business unit:', error);
       throw error;
     }
   }

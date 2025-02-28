@@ -16,6 +16,19 @@ const organizationSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  businessUnit: {
+    type: String,
+    trim: true,
+    default: 'Default'
+  },
+  costCenter: {
+    type: String,
+    trim: true
+  },
+  description: {
+    type: String,
+    trim: true
+  },
   avatarUrl: {
     type: String
   },

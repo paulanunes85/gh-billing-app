@@ -1,0 +1,39 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": {
+      "value": "dev"
+    },
+    "projectName": {
+      "value": "ghbill"
+    },
+    "location": {
+      "value": "westus2"
+    },
+    "appServicePlanSku": {
+      "value": "F1"
+    },
+    "databaseName": {
+      "value": "billingdb"
+    },
+    "nodeVersion": {
+      "value": "~18"
+    },
+    "adminObjectId": {
+      "value": "" // Replace with your Azure AD user or group Object ID
+    },
+    "ipAddressRanges": {
+      "value": [] // Example: ["203.0.113.0/24", "198.51.100.0/24"]
+    },
+    "enablePrivateLink": {
+      "value": false
+    },
+    "enableBackups": {
+      "value": true
+    },
+    "backupRetentionDays": {
+      "value": 7
+    }
+  }
+}

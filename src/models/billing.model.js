@@ -6,6 +6,13 @@ const billingSchema = new mongoose.Schema({
     ref: 'Organization',
     required: true
   },
+  businessUnit: {
+    type: String,
+    required: true
+  },
+  costCenter: {
+    type: String
+  },
   month: {
     type: String,
     required: true
@@ -26,8 +33,18 @@ const billingSchema = new mongoose.Schema({
     username: String,
     userId: String,
     usageMinutes: Number,
-    cost: Number
+    cost: Number,
+    team: String,
+    repository: String
   }],
+  billingPeriodStart: {
+    type: Date,
+    required: true
+  },
+  billingPeriodEnd: {
+    type: Date,
+    required: true
+  },
   billingDate: {
     type: Date
   },
@@ -39,6 +56,12 @@ const billingSchema = new mongoose.Schema({
     enum: ['pending', 'paid', 'overdue'],
     default: 'pending'
   },
+  paymentReference: {
+    type: String
+  },
+  notes: {
+    type: String
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -49,7 +72,8 @@ const billingSchema = new mongoose.Schema({
   }
 });
 
-// Índice composto para evitar duplicatas de faturamento para a mesma organização no mesmo mês/ano
 billingSchema.index({ organization: 1, month: 1, year: 1 }, { unique: true });
+billingSchema.index({ businessUnit: 1 });
+billingSchema.index({ billingPeriodStart: 1, billingPeriodEnd: 1 });
 
 module.exports = mongoose.model('Billing', billingSchema);

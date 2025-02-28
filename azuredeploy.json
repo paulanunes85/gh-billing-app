@@ -1,0 +1,410 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": {
+      "type": "string",
+      "defaultValue": "dev",
+      "allowedValues": [
+        "dev",
+        "test",
+        "qa",
+        "prod"
+      ],
+      "metadata": {
+        "description": "Environment name (dev, test, qa, prod)"
+      }
+    },
+    "projectName": {
+      "type": "string",
+      "defaultValue": "ghbill",
+      "minLength": 3,
+      "maxLength": 11,
+      "metadata": {
+        "description": "Project short name (max 11 chars) - will be used in resource naming"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for all resources"
+      }
+    },
+    "appServicePlanSku": {
+      "type": "string",
+      "defaultValue": "F1",
+      "allowedValues": [
+        "F1",
+        "B1",
+        "B2",
+        "B3",
+        "S1",
+        "S2",
+        "S3",
+        "P1v2",
+        "P2v2",
+        "P3v2"
+      ],
+      "metadata": {
+        "description": "The SKU of the App Service Plan"
+      }
+    },
+    "databaseName": {
+      "type": "string",
+      "defaultValue": "billingdb",
+      "metadata": {
+        "description": "The name of the MongoDB database"
+      }
+    },
+    "nodeVersion": {
+      "type": "string",
+      "defaultValue": "~18",
+      "metadata": {
+        "description": "The Node.js version for the app service"
+      }
+    },
+    "adminObjectId": {
+      "type": "string",
+      "metadata": {
+        "description": "Object ID of the Azure AD user or group that will have admin permissions for KeyVault"
+      }
+    },
+    "ipAddressRanges": {
+      "type": "array",
+      "defaultValue": [],
+      "metadata": {
+        "description": "Array of IP address ranges that should have access to resources (CIDR notation)"
+      }
+    },
+    "enablePrivateLink": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Enable Private Link for secure communication between resources"
+      }
+    },
+    "enableBackups": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Enable automatic backups for MongoDB"
+      }
+    },
+    "backupRetentionDays": {
+      "type": "int",
+      "defaultValue": 7,
+      "minValue": 1,
+      "maxValue": 30,
+      "metadata": {
+        "description": "Number of days to retain backups"
+      }
+    }
+  },
+  "variables": {
+    "resourceNamePrefix": "[concat(parameters('projectName'), '-', parameters('environmentName'))]",
+    "appServicePlanName": "[concat(variables('resourceNamePrefix'), '-asp')]",
+    "webAppName": "[concat(variables('resourceNamePrefix'), '-app')]",
+    "appInsightsName": "[concat(variables('resourceNamePrefix'), '-ai')]",
+    "keyVaultName": "[concat(variables('resourceNamePrefix'), '-kv')]",
+    "cosmosDbAccountName": "[concat(variables('resourceNamePrefix'), '-cosmos')]",
+    "storageAccountName": "[concat(replace(variables('resourceNamePrefix'), '-', ''), 'sa')]",
+    "logAnalyticsName": "[concat(variables('resourceNamePrefix'), '-log')]",
+    "networkSecurityGroupName": "[concat(variables('resourceNamePrefix'), '-nsg')]",
+    "keyVaultPrivateEndpointName": "[concat(variables('keyVaultName'), '-pe')]",
+    "cosmosPrivateEndpointName": "[concat(variables('cosmosDbAccountName'), '-pe')]",
+    "tags": {
+      "environment": "[parameters('environmentName')]",
+      "project": "GitHub Billing App",
+      "application": "Billing"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2022-10-01",
+      "name": "[variables('logAnalyticsName')]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": 30
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2022-09-01",
+      "name": "[variables('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "kind": "StorageV2",
+      "properties": {
+        "supportsHttpsTrafficOnly": true,
+        "allowBlobPublicAccess": false,
+        "minimumTlsVersion": "TLS1_2",
+        "networkAcls": {
+          "defaultAction": "[if(empty(parameters('ipAddressRanges')), 'Allow', 'Deny')]",
+          "ipRules": "[if(empty(parameters('ipAddressRanges')), json('[]'), parameters('ipAddressRanges'))]",
+          "bypass": "AzureServices"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2022-07-01",
+      "name": "[variables('networkSecurityGroupName')]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "AllowHTTPS",
+            "properties": {
+              "priority": 100,
+              "direction": "Inbound",
+              "access": "Allow",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "443",
+              "sourceAddressPrefix": "Internet",
+              "destinationAddressPrefix": "*"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2022-03-01",
+      "name": "[variables('appServicePlanName')]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]",
+      "sku": {
+        "name": "[parameters('appServicePlanSku')]",
+        "tier": "[if(equals(parameters('appServicePlanSku'), 'F1'), 'Free', if(startsWith(parameters('appServicePlanSku'), 'B'), 'Basic', if(startsWith(parameters('appServicePlanSku'), 'S'), 'Standard', 'Premium')))]",
+        "size": "[parameters('appServicePlanSku')]",
+        "family": "[if(equals(parameters('appServicePlanSku'), 'F1'), 'F', if(startsWith(parameters('appServicePlanSku'), 'B'), 'B', if(startsWith(parameters('appServicePlanSku'), 'S'), 'S', 'P')))]",
+        "capacity": 1
+      },
+      "kind": "linux",
+      "properties": {
+        "reserved": true
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2022-03-01",
+      "name": "[variables('webAppName')]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]",
+      "kind": "app,linux",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
+        "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]"
+      ],
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
+        "httpsOnly": true,
+        "siteConfig": {
+          "linuxFxVersion": "[concat('NODE|', parameters('nodeVersion'))]",
+          "minTlsVersion": "1.2",
+          "ftpsState": "Disabled",
+          "http20Enabled": true,
+          "appSettings": [
+            {
+              "name": "WEBSITE_NODE_DEFAULT_VERSION",
+              "value": "[parameters('nodeVersion')]"
+            },
+            {
+              "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName'))).InstrumentationKey]"
+            },
+            {
+              "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+              "value": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName'))).ConnectionString]"
+            },
+            {
+              "name": "MONGODB_URI",
+              "value": "@Microsoft.KeyVault(SecretUri=https://[variables('keyVaultName')].vault.azure.net/secrets/MongoDbUri/)"
+            },
+            {
+              "name": "DB_NAME",
+              "value": "[parameters('databaseName')]"
+            },
+            {
+              "name": "NODE_ENV",
+              "value": "production"
+            },
+            {
+              "name": "WEBSITE_RUN_FROM_PACKAGE",
+              "value": "1"
+            }
+          ],
+          "ipSecurityRestrictions": "[if(empty(parameters('ipAddressRanges')), json('[]'), parameters('ipAddressRanges'))]",
+          "cors": {
+            "allowedOrigins": ["https://*.azure.com"],
+            "supportCredentials": false
+          },
+          "healthCheckPath": "/health",
+          "autoHealEnabled": true,
+          "autoHealRules": {
+            "triggers": {
+              "requests": {
+                "count": 10,
+                "timeInterval": "00:01:00"
+              },
+              "slowRequests": {
+                "timeTaken": "00:00:10",
+                "count": 5,
+                "timeInterval": "00:01:00"
+              }
+            },
+            "actions": {
+              "actionType": "Recycle"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts",
+      "apiVersion": "2022-05-15",
+      "name": "[variables('cosmosDbAccountName')]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]",
+      "kind": "MongoDB",
+      "properties": {
+        "databaseAccountOfferType": "Standard",
+        "locations": [
+          {
+            "locationName": "[parameters('location')]",
+            "failoverPriority": 0,
+            "isZoneRedundant": false
+          }
+        ],
+        "apiProperties": {
+          "serverVersion": "4.0"
+        },
+        "capabilities": [
+          {
+            "name": "EnableMongo"
+          }
+        ],
+        "enableFreeTier": false,
+        "disableKeyBasedMetadataWriteAccess": true,
+        "publicNetworkAccess": "[if(parameters('enablePrivateLink'), 'Disabled', 'Enabled')]",
+        "ipRules": "[if(empty(parameters('ipAddressRanges')), json('[]'), parameters('ipAddressRanges'))]",
+        "backupPolicy": {
+          "type": "[if(parameters('enableBackups'), 'Periodic', 'Continuous')]",
+          "periodicModeProperties": {
+            "backupIntervalInMinutes": 240,
+            "backupRetentionIntervalInHours": "[mul(parameters('backupRetentionDays'), 24)]"
+          }
+        },
+        "networkAclBypassForAzureServices": true,
+        "minimalTlsVersion": "TLS1_2"
+      }
+    },
+    {
+      "type": "Microsoft.Insights/components",
+      "apiVersion": "2020-02-02",
+      "name": "[variables('appInsightsName')]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]",
+      "kind": "web",
+      "properties": {
+        "Application_Type": "web",
+        "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName'))]",
+        "Request_Source": "rest"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults",
+      "apiVersion": "2022-07-01",
+      "name": "[variables('keyVaultName')]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccountName'))]"
+      ],
+      "properties": {
+        "tenantId": "[subscription().tenantId]",
+        "sku": {
+          "name": "standard",
+          "family": "A"
+        },
+        "enabledForDeployment": false,
+        "enabledForDiskEncryption": false,
+        "enabledForTemplateDeployment": false,
+        "enableRbacAuthorization": true,
+        "enableSoftDelete": true,
+        "softDeleteRetentionInDays": 90,
+        "publicNetworkAccess": "[if(parameters('enablePrivateLink'), 'Disabled', 'Enabled')]",
+        "networkAcls": {
+          "defaultAction": "[if(empty(parameters('ipAddressRanges')), 'Allow', 'Deny')]",
+          "ipRules": "[if(empty(parameters('ipAddressRanges')), json('[]'), parameters('ipAddressRanges'))]",
+          "bypass": "AzureServices"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2022-07-01",
+      "name": "[concat(variables('keyVaultName'), '/MongoDbUri')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccountName'))]"
+      ],
+      "properties": {
+        "value": "[listConnectionStrings(resourceId('Microsoft.DocumentDB/databaseAccounts', variables('cosmosDbAccountName')), '2022-05-15').connectionStrings[0].connectionString]"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName')), parameters('adminObjectId'))]",
+      "scope": "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
+      ],
+      "properties": {
+        "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '00482a5a-887f-4fb3-b363-3b7fe8e74483')]",
+        "principalId": "[parameters('adminObjectId')]",
+        "principalType": "User"
+      }
+    }
+  ],
+  "outputs": {
+    "webAppName": {
+      "type": "string",
+      "value": "[variables('webAppName')]"
+    },
+    "webAppUrl": {
+      "type": "string",
+      "value": "[concat('https://', reference(resourceId('Microsoft.Web/sites', variables('webAppName'))).defaultHostName)]"
+    },
+    "keyVaultName": {
+      "type": "string",
+      "value": "[variables('keyVaultName')]"
+    },
+    "cosmosDbAccountName": {
+      "type": "string",
+      "value": "[variables('cosmosDbAccountName')]"
+    },
+    "appServicePrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Web/sites', variables('webAppName')), '2022-03-01', 'Full').identity.principalId]"
+    }
+  }
+}

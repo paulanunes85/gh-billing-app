@@ -9,45 +9,73 @@
     
     <!-- Estatísticas Gerais -->
     <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card text-white bg-primary mb-3">
-                <div class="card-body">
-                    <h5 class="card-title"><i class="fas fa-building me-2"></i>Organizações</h5>
-                    <p class="card-text display-6"><%= stats.organizationCount %></p>
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card text-white bg-primary shadow h-100">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-white-50">Organizações</h6>
+                            <h2 class="display-6 mb-0"><%= stats.organizationCount %></h2>
+                        </div>
+                        <div class="icon-box rounded-circle bg-white p-3">
+                            <i class="fas fa-building fa-2x text-primary"></i>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card text-white bg-success mb-3">
-                <div class="card-body">
-                    <h5 class="card-title"><i class="fas fa-file-invoice-dollar me-2"></i>Faturas</h5>
-                    <p class="card-text display-6"><%= stats.billingCount %></p>
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card text-white bg-success shadow h-100">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-white-50">Faturas</h6>
+                            <h2 class="display-6 mb-0"><%= stats.billingCount %></h2>
+                        </div>
+                        <div class="icon-box rounded-circle bg-white p-3">
+                            <i class="fas fa-file-invoice-dollar fa-2x text-success"></i>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card text-white bg-info mb-3">
-                <div class="card-body">
-                    <h5 class="card-title"><i class="fas fa-dollar-sign me-2"></i>Total Faturado</h5>
-                    <p class="card-text display-6">$<%= stats.totalAmount.toFixed(2) %></p>
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card text-white bg-info shadow h-100">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-white-50">Total Faturado</h6>
+                            <h2 class="display-6 mb-0">$<%= stats.totalAmount.toFixed(2) %></h2>
+                        </div>
+                        <div class="icon-box rounded-circle bg-white p-3">
+                            <i class="fas fa-dollar-sign fa-2x text-info"></i>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card text-white bg-warning mb-3">
-                <div class="card-body">
-                    <h5 class="card-title"><i class="fas fa-clock me-2"></i>Pendente</h5>
-                    <p class="card-text display-6">$<%= stats.pendingAmount.toFixed(2) %></p>
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card text-white bg-warning shadow h-100">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-white-50">Pendente</h6>
+                            <h2 class="display-6 mb-0">$<%= stats.pendingAmount.toFixed(2) %></h2>
+                        </div>
+                        <div class="icon-box rounded-circle bg-white p-3">
+                            <i class="fas fa-clock fa-2x text-warning"></i>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
     
-    <div class="row">
+    <div class="row mb-4">
         <!-- Faturas Pendentes -->
-        <div class="col-md-6">
-            <div class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="col-lg-6">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-exclamation-circle me-2"></i>Faturas Pendentes</h5>
                     <a href="/api/billing/status/pending" class="btn btn-sm btn-outline-primary">Ver Todas</a>
                 </div>
@@ -55,7 +83,7 @@
                     <% if (pendingBillings && pendingBillings.length > 0) { %>
                         <div class="table-responsive">
                             <table class="table table-hover">
-                                <thead>
+                                <thead class="table-light">
                                     <tr>
                                         <th>Organização</th>
                                         <th>Período</th>
@@ -96,22 +124,45 @@
         </div>
         
         <!-- Gráfico de Faturamento -->
-        <div class="col-md-6">
-            <div class="card mb-4">
-                <div class="card-header">
+        <div class="col-lg-6">
+            <div class="card shadow mb-4">
+                <div class="card-header bg-white">
                     <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Distribuição de Faturamento</h5>
                 </div>
                 <div class="card-body">
-                    <canvas id="billingChart"></canvas>
+                    <canvas id="billingChart" style="height: 250px;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seção Business Units -->
+    <div class="card shadow mb-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-building me-2"></i>Business Units</h5>
+            <a href="/dashboard/business-units" class="btn btn-sm btn-primary">
+                <i class="fas fa-th-list me-1"></i>Ver Todas
+            </a>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <!-- Esta seção será populada dinamicamente via AJAX para não sobrecarregar a página inicial -->
+                <div id="business-units-container" class="col-12">
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        <p class="mt-2">Carregando dados das business units...</p>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
     
     <!-- Lista de Organizações -->
-    <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0"><i class="fas fa-building me-2"></i>Organizações</h5>
+    <div class="card shadow">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-sitemap me-2"></i>Organizações</h5>
             <a href="/api/organizations" class="btn btn-sm btn-primary">
                 <i class="fas fa-plus me-1"></i>Adicionar Organização
             </a>
@@ -121,7 +172,7 @@
                 <div class="row row-cols-1 row-cols-md-3 g-4">
                     <% organizations.forEach(function(org) { %>
                         <div class="col">
-                            <div class="card h-100">
+                            <div class="card h-100 shadow-sm">
                                 <div class="card-body">
                                     <div class="d-flex align-items-center mb-3">
                                         <% if (org.avatarUrl) { %>
@@ -134,10 +185,17 @@
                                         <h5 class="card-title mb-0"><%= org.name %></h5>
                                     </div>
                                     <% if (org.login) { %>
-                                        <p class="card-text text-muted"><small>@<%= org.login %></small></p>
+                                        <p class="card-text text-muted small mb-2">@<%= org.login %></p>
+                                    <% } %>
+                                    <% if (org.businessUnit) { %>
+                                        <div class="mb-2">
+                                            <span class="badge bg-secondary">
+                                                <i class="fas fa-building me-1"></i><%= org.businessUnit %>
+                                            </span>
+                                        </div>
                                     <% } %>
                                 </div>
-                                <div class="card-footer d-flex justify-content-between">
+                                <div class="card-footer d-flex justify-content-between bg-white">
                                     <a href="/dashboard/organization/<%= org._id %>" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-chart-bar me-1"></i>Detalhes
                                     </a>
@@ -173,7 +231,8 @@ document.addEventListener('DOMContentLoaded', function() {
             datasets: [{
                 data: [<%= stats.paidAmount %>, <%= stats.pendingAmount %>],
                 backgroundColor: ['#28a745', '#ffc107'],
-                borderWidth: 1
+                borderWidth: 1,
+                borderColor: '#fff'
             }]
         },
         options: {
@@ -182,8 +241,20 @@ document.addEventListener('DOMContentLoaded', function() {
             plugins: {
                 legend: {
                     position: 'bottom'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.raw || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = Math.round((value / total) * 100);
+                            return `${label}: $${value.toFixed(2)} (${percentage}%)`;
+                        }
+                    }
                 }
-            }
+            },
+            cutout: '65%'
         }
     });
     
@@ -205,7 +276,82 @@ document.addEventListener('DOMContentLoaded', function() {
             syncBillingData(orgId);
         });
     });
+    
+    // Carregar dados das business units via AJAX
+    loadBusinessUnits();
 });
+
+// Função para carregar as business units via AJAX
+function loadBusinessUnits() {
+    fetch('/dashboard/business-units')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Erro ao carregar business units');
+            }
+            return response.text();
+        })
+        .then(html => {
+            // Extraindo apenas o conteúdo necessário do HTML
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            // Pegar os dados das business units do documento HTML
+            const businessUnitsCards = Array.from(doc.querySelectorAll('.col-lg-6.mb-4'))
+                .slice(0, 4); // Limitar a 4 business units
+            
+            let buContainer = document.getElementById('business-units-container');
+            
+            // Se não encontrou business units ou ocorreu algum erro
+            if (!businessUnitsCards.length) {
+                buContainer.innerHTML = `
+                    <div class="alert alert-info">
+                        <p>Não foram encontradas business units configuradas.</p>
+                        <a href="/api/organizations" class="btn btn-primary mt-2">
+                            <i class="fas fa-plus me-1"></i>Configurar Organizações
+                        </a>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Criar o grid para as business units
+            buContainer.innerHTML = '<div class="row g-4" id="bu-cards"></div>';
+            let buCardsContainer = document.getElementById('bu-cards');
+            
+            // Adicionar cada card de business unit
+            businessUnitsCards.forEach(card => {
+                const col = document.createElement('div');
+                col.className = 'col-md-6 col-lg-3';
+                col.appendChild(card);
+                buCardsContainer.appendChild(col);
+                
+                // Ajustar o tamanho do card para se adequar à coluna menor
+                card.classList.remove('col-lg-6', 'mb-4');
+                card.classList.add('h-100');
+            });
+            
+            // Se existem mais business units, mostrar um link "Ver mais"
+            if (businessUnitsCards.length === 4) {
+                const col = document.createElement('div');
+                col.className = 'col-12 text-center mt-3';
+                col.innerHTML = `
+                    <a href="/dashboard/business-units" class="btn btn-outline-primary">
+                        <i class="fas fa-plus me-1"></i>Ver todas as business units
+                    </a>
+                `;
+                buContainer.appendChild(col);
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            document.getElementById('business-units-container').innerHTML = `
+                <div class="alert alert-danger">
+                    <p>Erro ao carregar dados das business units.</p>
+                    <small>${error.message}</small>
+                </div>
+            `;
+        });
+}
 
 // Função para atualizar status do faturamento
 async function updateBillingStatus(billingId, status) {
