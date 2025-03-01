@@ -21,7 +21,7 @@ jobs:
       - name: Set up Node.js version
         uses: actions/setup-node@v3
         with:
-          node-version: 'node|~18'
+          node-version: '18.x'
 
       - name: npm install, build, and test
         run: |
@@ -71,4 +71,3 @@ jobs:
           app-name: 'ghbill-dev-app'
           slot-name: 'Production'
           package: .
-          
