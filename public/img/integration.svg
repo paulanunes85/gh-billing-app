@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800" height="600" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+    <!-- GitHub Icon -->
+    <g transform="translate(100, 250)">
+        <circle cx="100" cy="100" r="80" fill="#24292e"/>
+        <path d="M100 40c-33.347 0-60 26.653-60 60 0 26.677 17.307 49.307 41.333 57.307-0.613 1.12-0.947 2.347-0.947 3.613v20c0 4.4 3.6 8 8 8h23.227c4.4 0 8-3.6 8-8v-20c0-1.267-0.333-2.493-0.947-3.613C142.693 149.307 160 126.677 160 100c0-33.347-26.653-60-60-60z" fill="#fff"/>
+    </g>
+    
+    <!-- Microsoft Azure Icon -->
+    <g transform="translate(500, 250)">
+        <rect x="60" y="60" width="80" height="80" rx="10" fill="#0078d4"/>
+        <path d="M80 100l20-20 20 20-20 20z" fill="#fff"/>
+        <path d="M120 100l-20 20-20-20 20-20z" fill="#fff"/>
+    </g>
+    
+    <!-- Connecting Lines -->
+    <g transform="translate(0, 0)">
+        <path d="M280 350 C 400 350, 400 350, 520 350" stroke="#0078d4" stroke-width="4" fill="none" stroke-dasharray="10,5"/>
+        <circle cx="400" cy="350" r="15" fill="#2ea44f"/>
+        <text x="385" y="355" fill="#fff" font-family="Arial" font-size="16" font-weight="bold">+</text>
+    </g>
+    
+    <!-- Integration Text -->
+    <g transform="translate(300, 150)">
+        <text x="0" y="0" font-family="Segoe UI" font-size="24" fill="#24292e" text-anchor="middle">Integração Perfeita</text>
+        <text x="0" y="30" font-family="Segoe UI" font-size="16" fill="#6e7781" text-anchor="middle">GitHub + Microsoft Azure</text>
+    </g>
+</svg>

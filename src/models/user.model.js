@@ -15,18 +15,21 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true
+    required: false // Tornando a senha opcional para permitir login apenas via GitHub
   },
   githubId: {
     type: String,
     unique: true,
     sparse: true
   },
-  githubUsername: {
+  username: {
     type: String,
     sparse: true
   },
-  avatarUrl: {
+  avatar: {
+    type: String
+  },
+  accessToken: {
     type: String
   },
   role: {
@@ -49,6 +52,12 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   }
+});
+
+// Atualizar o timestamp antes de salvar
+userSchema.pre('save', function(next) {
+  this.updatedAt = Date.now();
+  next();
 });
 
 module.exports = mongoose.model('User', userSchema);

@@ -99,6 +99,24 @@
       "metadata": {
         "description": "Number of days to retain backups"
       }
+    },
+    "githubClientId": {
+      "type": "string",
+      "metadata": {
+        "description": "GitHub OAuth Client ID"
+      }
+    },
+    "githubClientSecret": {
+      "type": "securestring",
+      "metadata": {
+        "description": "GitHub OAuth Client Secret"
+      }
+    },
+    "sessionSecret": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Secret key for session encryption"
+      }
     }
   },
   "variables": {
@@ -246,6 +264,14 @@
             {
               "name": "WEBSITE_RUN_FROM_PACKAGE",
               "value": "1"
+            },
+            {
+              "name": "AZURE_KEY_VAULT_NAME",
+              "value": "[variables('keyVaultName')]"
+            },
+            {
+              "name": "AZURE_TENANT_ID",
+              "value": "[subscription().tenantId]"
             }
           ],
           "ipSecurityRestrictions": "[if(empty(parameters('ipAddressRanges')), json('[]'), parameters('ipAddressRanges'))]",
@@ -309,8 +335,7 @@
             "backupRetentionIntervalInHours": "[mul(parameters('backupRetentionDays'), 24)]"
           }
         },
-        "networkAclBypassForAzureServices": true,
-        "minimalTlsVersion": "TLS1_2"
+        "networkAclBypassForAzureServices": true
       }
     },
     {
@@ -371,6 +396,39 @@
       }
     },
     {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2022-07-01",
+      "name": "[concat(variables('keyVaultName'), '/GitHubClientId')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
+      ],
+      "properties": {
+        "value": "[parameters('githubClientId')]"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2022-07-01",
+      "name": "[concat(variables('keyVaultName'), '/GitHubClientSecret')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
+      ],
+      "properties": {
+        "value": "[parameters('githubClientSecret')]"
+      }
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2022-07-01",
+      "name": "[concat(variables('keyVaultName'), '/SessionSecret')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]"
+      ],
+      "properties": {
+        "value": "[parameters('sessionSecret')]"
+      }
+    },
+    {
       "type": "Microsoft.Authorization/roleAssignments",
       "apiVersion": "2022-04-01",
       "name": "[guid(resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName')), parameters('adminObjectId'))]",
@@ -382,6 +440,21 @@
         "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '00482a5a-887f-4fb3-b363-3b7fe8e74483')]",
         "principalId": "[parameters('adminObjectId')]",
         "principalType": "User"
+      }
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName')), 'KeyVaultSecretsUser')]",
+      "scope": "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
+        "[resourceId('Microsoft.Web/sites', variables('webAppName'))]"
+      ],
+      "properties": {
+        "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', '4633458b-17de-408a-b874-0445c86b69e6')]",
+        "principalId": "[reference(resourceId('Microsoft.Web/sites', variables('webAppName')), '2022-03-01', 'Full').identity.principalId]",
+        "principalType": "ServicePrincipal"
       }
     }
   ],

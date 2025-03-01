@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="error-page">
+    <div class="error-container">
+        <h1>Oops!</h1>
+        <div class="error-content">
+            <p><%= message %></p>
+            <% if (locals.stack && process.env.NODE_ENV !== 'production') { %>
+                <pre class="error-stack"><%= stack %></pre>
+            <% } %>
+        </div>
+        <div class="error-actions">
+            <a href="/" class="btn btn-primary">Voltar para a página inicial</a>
+            <% if (process.env.NODE_ENV !== 'production') { %>
+                <button onclick="window.location.reload()" class="btn btn-secondary">Tentar novamente</button>
+            <% } %>
+        </div>
+    </div>
+</body>
+</html>

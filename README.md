@@ -1,6 +1,6 @@
 # GitHub Billing App
 
-Uma aplicação para gerenciar e monitorar o faturamento do GitHub Copilot para organizações. O GitHub Billing App permite sincronizar dados de faturamento, monitorar custos por usuário, gerar relatórios e manter controle das despesas com GitHub Copilot Enterprise.
+Aplicação para gerenciamento e monitoramento de custos do GitHub Copilot Enterprise para grandes organizações.
 
 ## Funcionalidades
 
@@ -53,124 +53,147 @@ Uma aplicação para gerenciar e monitorar o faturamento do GitHub Copilot para 
 - Uma assinatura ativa do Azure
 - Azure CLI instalado ou acesso ao Portal Azure
 - Um usuário ou grupo do Azure AD para administrar o Key Vault (você precisará do Object ID)
+- Conta no GitHub com permissões para criar OAuth Apps
+- Git instalado localmente
 
-### Recursos Provisionados
-O template ARM (`azuredeploy.json`) provisiona uma infraestrutura completa incluindo:
+### Configurações Necessárias Antes da Implantação
 
-- **App Service Plan**: Hospeda a aplicação web
-  - Suporte a Linux
-  - Escala automática (em SKUs premium)
-  - Várias opções de SKU (F1 a P3v2)
+#### 1. Configuração do GitHub OAuth App
 
-- **App Service**: 
-  - Node.js runtime
-  - HTTPS obrigatório
-  - Configuração de CORS
-  - Monitoramento de integridade
-  - Auto-healing configurado
+1. Acesse o GitHub e vá para `Settings > Developer settings > OAuth Apps`
+2. Clique em "New OAuth App"
+3. Preencha as informações:
+   - **Application name**: GitHub Billing App
+   - **Homepage URL**: URL da sua aplicação (ou localhost para testes)
+   - **Application description**: Opcional, mas recomendado
+   - **Authorization callback URL**: `https://{seu-app-name}.azurewebsites.net/api/auth/github/callback`
+4. Clique em "Register application"
+5. Anote o "Client ID"
+6. Clique em "Generate a new client secret" e anote o valor (você não poderá vê-lo novamente)
 
-- **Cosmos DB (API MongoDB)**:
-  - Backups automáticos configuráveis
-  - Suporte a TLS 1.2
-  - Restrições de rede configuráveis
-  - MongoDB 4.0
+#### 2. Preparação do Azure AD
 
-- **Application Insights**:
-  - Integração com Log Analytics
-  - Monitoramento em tempo real
-  - Rastreamento de requisições
-
-- **Key Vault**:
-  - Gerenciamento de segredos
-  - RBAC habilitado
-  - Soft delete ativado
-  - Rede restrita configurável
-
-### Parâmetros de Implantação
-
-Principais parâmetros no `azuredeploy.parameters.json`:
-
-| Parâmetro | Descrição | Exemplo |
-|-----------|-----------|---------|
-| environmentName | Ambiente (dev/test/qa/prod) | "dev" |
-| projectName | Nome curto do projeto (3-11 chars) | "ghbill" |
-| location | Região do Azure | "brazilsouth" |
-| appServicePlanSku | SKU do App Service Plan | "F1" (dev) ou "P1v2" (prod) |
-| adminObjectId | Object ID do admin do Key Vault | "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" |
-| enablePrivateLink | Habilitar Azure Private Link | true/false |
-| enableBackups | Habilitar backups do Cosmos DB | true/false |
-| backupRetentionDays | Dias de retenção do backup | 7 |
-| ipAddressRanges | IPs permitidos (CIDR) | ["10.0.0.0/24"] |
+1. Obtenha o Object ID do usuário ou grupo que será administrador do Key Vault:
+   ```bash
+   # Para um usuário
+   az ad user show --id usuario@dominio.com --query objectId -o tsv
+   
+   # Para um grupo
+   az ad group show --group "Nome do Grupo" --query objectId -o tsv
+   ```
+2. Anote o Object ID para usar no template ARM
 
 ### Implantação Passo a Passo
 
-1. **Preparação**:
-   ```bash
-   # Obter seu Object ID (necessário para o Key Vault)
-   az ad signed-in-user show --query objectId -o tsv
+1. **Preparar parâmetros de implantação**:
+   Edite o arquivo `azuredeploy.parameters.json` e atualize os seguintes valores:
    
-   # Ou para um grupo:
-   az ad group show --group AdminGroup --query objectId -o tsv
+   ```json
+   {
+     "adminObjectId": {
+       "value": "SEU-OBJECT-ID-DO-AZURE-AD"
+     },
+     "githubClientId": {
+       "value": "SEU-GITHUB-CLIENT-ID"
+     },
+     "githubClientSecret": {
+       "value": "SEU-GITHUB-CLIENT-SECRET"
+     },
+     "sessionSecret": {
+       "value": "GERE-UMA-CHAVE-ALEATÓRIA-AQUI"
+     }
+   }
    ```
 
-2. **Configurar Parâmetros**:
-   - Copie `azuredeploy.parameters.json`
-   - Preencha o `adminObjectId` com o ID obtido
-   - Ajuste outros parâmetros conforme necessário
-
-3. **Implantar**:
+   Você pode gerar um session secret aleatório com:
    ```bash
-   # Criar grupo de recursos
-   az group create --name MeuGrupoRecursos --location brazilsouth
-   
-   # Implantar template
-   az deployment group create \
-     --name GHBillingDeployment \
-     --resource-group MeuGrupoRecursos \
-     --template-file azuredeploy.json \
-     --parameters azuredeploy.parameters.json
+   openssl rand -hex 32
    ```
 
-### Pós-Implantação
+2. **Criar o Resource Group (se não existir)**:
+   ```bash
+   az group create --name ghbilling-rg --location westus2
+   ```
 
-1. **Configurar Aplicação**:
+3. **Implantar a infraestrutura**:
+   ```bash
+   az deployment group create --resource-group ghbilling-rg --template-file azuredeploy.json --parameters azuredeploy.parameters.json
+   ```
+
+4. **Verificar a implantação**:
    ```bash
    # Obter URL da aplicação
-   az webapp show --name <web-app-name> --resource-group MeuGrupoRecursos --query defaultHostName
-
-   # Configurar variáveis adicionais
-   az webapp config appsettings set \
-     --name <web-app-name> \
-     --resource-group MeuGrupoRecursos \
-     --settings \
-     GITHUB_CLIENT_ID="seu-client-id" \
-     GITHUB_CLIENT_SECRET="@Microsoft.KeyVault(SecretUri=https://<key-vault-name>.vault.azure.net/secrets/GitHubClientSecret/)" \
-     NODE_ENV="production"
+   az webapp show --name <web-app-name> --resource-group ghbilling-rg --query defaultHostName -o tsv
    ```
 
-2. **Verificar Implantação**:
-   - Acesse a URL da aplicação
-   - Verifique logs no Application Insights
-   - Teste a conexão com o Cosmos DB
-   - Valide o acesso ao Key Vault
+### Configuração Pós-Implantação
+
+Após a implantação dos recursos, você precisa concluir a configuração seguindo os scripts disponíveis na pasta `scripts/`:
+
+1. **Tornar scripts executáveis**:
+   ```bash
+   chmod +x scripts/*.sh
+   ```
+
+2. **Configurar os segredos no Key Vault**:
+   ```bash
+   ./scripts/configure-secrets.sh
+   ```
+
+3. **Configurar o App Service para usar o Key Vault**:
+   ```bash
+   ./scripts/update-app-config.sh
+   ```
+
+4. **Implantar o código no App Service**:
+   ```bash
+   ./scripts/deploy.sh
+   ```
+
+5. **Opcional: Configurar domínio personalizado**:
+   ```bash
+   ./scripts/configure-custom-domain.sh
+   ```
+
+6. **Opcional: Configurar SSL para domínio personalizado**:
+   ```bash
+   ./scripts/setup-domain-ssl.sh
+   ```
+
+### Verificação da Instalação
+
+1. Acesse a URL da aplicação (gerada na etapa de implantação)
+2. Verifique se a página inicial carrega corretamente
+3. Tente fazer login usando o GitHub OAuth
+4. Confirme se você pode selecionar uma organização e acessar o dashboard
 
 ### Troubleshooting
 
 1. **Problemas de Acesso ao Key Vault**:
    ```bash
    # Verificar atribuições RBAC
-   az role assignment list --assignee <seu-object-id> --scope /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.KeyVault/vaults/<key-vault-name>
+   az role assignment list --assignee <seu-object-id> --scope /subscriptions/<subscription-id>/resourceGroups/ghbilling-rg/providers/Microsoft.KeyVault/vaults/<key-vault-name>
+   ```
+   
+   Se não houver atribuição, adicione:
+   ```bash
+   az role assignment create --assignee <seu-object-id> --role "Key Vault Administrator" --scope /subscriptions/<subscription-id>/resourceGroups/ghbilling-rg/providers/Microsoft.KeyVault/vaults/<key-vault-name>
    ```
 
-2. **Problemas de Conexão com Cosmos DB**:
-   - Verificar string de conexão no Key Vault
-   - Confirmar regras de firewall
-   - Validar configuração de rede
+2. **Problemas de Autenticação com GitHub**:
+   - Verifique se o Client ID e Client Secret estão corretos no Key Vault
+   - Confirme se a URL de callback está correta no GitHub OAuth App
+   - Verifique se a URL de callback no Key Vault corresponde à configurada no GitHub
 
 3. **Problemas no App Service**:
-   - Verificar logs de diagnóstico
-   - Validar configurações de aplicação
-   - Confirmar versão do Node.js
+   - Verifique logs de aplicação:
+     ```bash
+     az webapp log tail --name <web-app-name> --resource-group ghbilling-rg
+     ```
+   - Confirmar configurações de aplicação:
+     ```bash
+     az webapp config appsettings list --name <web-app-name> --resource-group ghbilling-rg
+     ```
 
 ### Monitoramento e Manutenção
 
@@ -189,58 +212,25 @@ Principais parâmetros no `azuredeploy.parameters.json`:
    - Teste em ambiente de desenvolvimento
    - Mantenha o template ARM atualizado
 
-### Segurança
+### Segurança e Boas Práticas
 
-1. **Melhores Práticas**:
+1. **Nunca armazene secrets no código**:
+   - Use sempre o Azure Key Vault para armazenar segredos
+   - Não inclua segredos em arquivos .env que vão para o controle de versão
+   - Use referências para Key Vault ao invés de valores diretos
+
+2. **Melhores Práticas de Segurança**:
    - Mantenha o TLS 1.2 ou superior
    - Use Private Link em produção
    - Implemente RBAC adequadamente
    - Monitore tentativas de acesso
-
-2. **Compliance**:
    - Habilite auditoria no Key Vault
    - Mantenha logs por período adequado
+
+3. **Compliance**:
    - Documente alterações de configuração
-
-## Configuração
-
-### Variáveis de Ambiente
-
-Configure as seguintes variáveis no arquivo `.env`:
-
-- `PORT`: Porta em que o servidor irá rodar (padrão: 3000)
-- `MONGODB_URI`: URI para conexão com MongoDB
-- `GITHUB_CLIENT_ID` e `GITHUB_CLIENT_SECRET`: Credenciais OAuth do GitHub
-- `SESSION_SECRET`: Chave secreta para sessões
-- `JWT_SECRET`: Chave para geração de tokens JWT
-
-### Configuração do GitHub OAuth
-
-1. Vá para [GitHub Developer Settings](https://github.com/settings/developers)
-2. Crie uma nova aplicação OAuth
-3. Configure a URL de callback: `http://seu-dominio.com/api/auth/github/callback`
-4. Obtenha o Client ID e Client Secret e adicione ao arquivo `.env`
-
-## Estrutura do Projeto
-
-```
-gh-billing-app/
-├── public/                # Arquivos estáticos
-│   ├── css/              # Estilos CSS
-│   ├── js/               # JavaScript do cliente
-│   └── img/              # Imagens
-├── src/
-│   ├── controllers/      # Controladores da aplicação
-│   ├── models/           # Modelos de dados (MongoDB/Mongoose)
-│   ├── routes/           # Rotas da API e páginas
-│   ├── services/         # Serviços para lógica de negócios
-│   ├── utils/            # Utilitários
-│   ├── views/            # Templates EJS
-│   └── index.js          # Ponto de entrada da aplicação
-├── .env.example          # Exemplo de variáveis de ambiente
-├── package.json          # Dependências e scripts
-└── README.md             # Documentação
-```
+   - Mantenha um registro de controle de acesso
+   - Revise permissões periodicamente
 
 ## Uso
 
@@ -266,38 +256,14 @@ gh-billing-app/
 3. Clique em "Gerar Relatório"
 4. Exporte para CSV ou PDF conforme necessário
 
-## API Endpoints
+## Contribuições
 
-A aplicação fornece uma API REST completa para integração com outros sistemas:
-
-### Autenticação
-- `POST /api/auth/login`: Login com email/senha
-- `GET /api/auth/github`: Login com GitHub
-- `POST /api/auth/logout`: Logout
-
-### Organizações
-- `GET /api/organizations`: Lista todas as organizações
-- `GET /api/organizations/:id`: Detalhes de uma organização
-- `POST /api/organizations`: Adiciona nova organização
-- `PATCH /api/organizations/:id/token`: Atualiza token da organização
-
-### Faturamento
-- `POST /api/billing/sync/:organizationId`: Sincroniza dados de faturamento
-- `GET /api/billing/organization/:organizationId`: Obtém histórico de faturamento
-- `GET /api/billing/:billingId`: Obtém detalhes de um registro específico
-- `PATCH /api/billing/:billingId/status`: Atualiza status de pagamento
-- `GET /api/billing/reports/generate`: Gera relatório de faturamento
-
-## Contribuição
-
-Contribuições são bem-vindas! Sinta-se à vontade para enviar pull requests ou abrir issues para sugerir melhorias ou relatar bugs.
-
-1. Faça um fork do repositório
-2. Crie uma branch para sua feature (`git checkout -b feature/nova-funcionalidade`)
-3. Faça commit das suas mudanças (`git commit -m 'Adiciona nova funcionalidade'`)
-4. Faça push para a branch (`git push origin feature/nova-funcionalidade`)
-5. Abra um pull request
+Contribuições são bem-vindas! Por favor, leia o arquivo [CONTRIBUTING.md](CONTRIBUTING.md) para detalhes sobre nosso código de conduta e o processo para enviar pull requests.
 
 ## Licença
 
-Este projeto está licenciado sob a licença MIT - veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+Este projeto está licenciado sob a licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes.
+
+## Suporte
+
+Se você encontrar algum problema ou tiver sugestões, por favor abra uma issue no repositório.
