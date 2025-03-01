@@ -13,7 +13,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read #This is required for actions/checkout
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -24,14 +24,13 @@ jobs:
           node-version: '18.x'
           cache: 'npm'
 
-      - name: npm install, build, and test
-        run: |
-          npm install
-          npm run build --if-present
-          npm run test --if-present
+      - name: Clean install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
         env:
           CI: true
-          # Placeholders para variáveis que serão substituídas no ambiente de produção
           SESSION_SECRET: "placeholder-for-build"
           GITHUB_CLIENT_ID: "placeholder-for-build"
           GITHUB_CLIENT_SECRET: "placeholder-for-build"
@@ -39,10 +38,11 @@ jobs:
 
       - name: Create deployment package
         run: |
+          rm -rf node_modules/
+          npm ci --production
           zip -r release.zip . \
             --exclude=".git/*" \
             --exclude=".github/*" \
-            --exclude="node_modules/*" \
             --exclude="tests/*"
 
       - name: Upload artifact for deployment job
@@ -59,7 +59,7 @@ jobs:
       name: 'Production'
       url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
     permissions:
-      id-token: write #This is required for requesting the JWT
+      id-token: write
 
     steps:
       - name: Download artifact from build job
@@ -83,14 +83,22 @@ jobs:
           package: release.zip
 
       - name: Configure App Service
-        run: |
-          az webapp config appsettings set \
-            --resource-group "ghbilling-rg" \
-            --name "ghbill-dev-app" \
-            --settings \
-            ENABLE_ORYX_BUILD="true" \
-            SCM_DO_BUILD_DURING_DEPLOYMENT="true" \
-            WEBSITE_RUN_FROM_PACKAGE="1" \
-            NODE_ENV="production" \
-            WEBSITE_NODE_DEFAULT_VERSION="~18" \
-            NPM_CONFIG_PRODUCTION="true"
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            az webapp config appsettings set \
+              --resource-group "ghbilling-rg" \
+              --name "ghbill-dev-app" \
+              --settings \
+              ENABLE_ORYX_BUILD="true" \
+              SCM_DO_BUILD_DURING_DEPLOYMENT="true" \
+              WEBSITE_RUN_FROM_PACKAGE="1" \
+              NODE_ENV="production" \
+              WEBSITE_NODE_DEFAULT_VERSION="~18" \
+              NPM_CONFIG_PRODUCTION="true"
+
+      - name: Restart App Service
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            az webapp restart --name "ghbill-dev-app" --resource-group "ghbilling-rg"
