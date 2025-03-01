@@ -73,6 +73,16 @@ jobs:
           keyvault: ${{ secrets.KEYVAULT_NAME }} # deve estar configurado nos segredos do repositório
           secrets: AZUREAPPSERVICE_CLIENTID,AZUREAPPSERVICE_TENANTID,AZUREAPPSERVICE_SUBSCRIPTIONID
 
+      - name: Validate retrieved secrets
+        run: |
+          if [ -z "${{ steps.keyvault.outputs.AZUREAPPSERVICE_CLIENTID }}" ] || \
+             [ -z "${{ steps.keyvault.outputs.AZUREAPPSERVICE_TENANTID }}" ] || \
+             [ -z "${{ steps.keyvault.outputs.AZUREAPPSERVICE_SUBSCRIPTIONID }}" ]; then
+            echo "Missing secrets from Key Vault" >&2
+            exit 1
+          fi
+          echo "Secrets retrieved successfully"
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
