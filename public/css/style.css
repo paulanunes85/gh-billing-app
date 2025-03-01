@@ -855,6 +855,7 @@ body {
     font-size: 2rem;
     background: linear-gradient(135deg, var(--ms-primary) 0%, var(--ms-secondary) 100%);
     -webkit-background-clip: text;
+    background-clip: text; /* Adicionando a propriedade padrão para compatibilidade */
     -webkit-text-fill-color: transparent;
 }
 

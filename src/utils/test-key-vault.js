@@ -64,7 +64,7 @@ async function testKeyVaultIntegration() {
         if (error.code === 'UNABLE_TO_GET_ISSUER_CERT_LOCALLY') {
             console.log('\nDica: Problema com certificados SSL. Verifique sua conexão e certificados.');
         }
-        if (error.message.includes('AADSTS700016')) {
+        if (error.message && error.message.includes('AADSTS700016')) {
             console.log('\nDica: Problema com autenticação. Verifique suas credenciais do Azure.');
         }
     }
