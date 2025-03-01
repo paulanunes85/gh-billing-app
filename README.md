@@ -232,6 +232,20 @@ Após a implantação dos recursos, você precisa concluir a configuração segu
    - Mantenha um registro de controle de acesso
    - Revise permissões periodicamente
 
+## GitHub Actions OIDC Credential
+
+Para configurar a autenticação OIDC para o GitHub Actions, siga os passos abaixo:
+
+1. **Nome da Credencial:** `GitHub_Actions_OIDC_Credential`
+2. **Descrição:** `Federated credential for GitHub Actions to authenticate using OIDC for the gh-billing-app repository.`
+3. **Issuer:** `https://token.actions.githubusercontent.com`
+4. **Subject:** `repo:<your-github-username>/gh-billing-app:ref:refs/heads/main`
+5. **Audience:** `api://AzureADTokenExchange`
+
+Certifique-se de substituir `<your-github-username>` pelo seu nome de usuário do GitHub.
+
+Para mais detalhes, consulte a [documentação oficial](https://learn.microsoft.com/entra/workload-id/workload-identity-federation).
+
 ## Uso
 
 ### Adicionando uma Organização
