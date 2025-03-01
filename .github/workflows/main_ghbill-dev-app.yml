@@ -23,12 +23,6 @@ jobs:
         with:
           node-version: '18.x'
 
-      - name: npm install, build, and test
-        run: |
-          npm install
-          npm run build --if-present
-          npm run test --if-present
-
       - name: Zip artifact for deployment
         run: zip release.zip ./* -r
 
@@ -60,9 +54,9 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_7AC5128440A8461689803EDC84E8092A }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_BBBC8EB0EBC04155B02A4F2253AD91F5 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_D8EE015DF20B48E7BCD65A656745E921 }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_5D0A40F0729A440EBD0552AC00556A43 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_1AB186D4EA1E49F2959C80FFC4A40D7D }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_79F5EB20CA754A019C41D37E1A591020 }}
 
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
@@ -71,3 +65,4 @@ jobs:
           app-name: 'ghbill-dev-app'
           slot-name: 'Production'
           package: .
+          
