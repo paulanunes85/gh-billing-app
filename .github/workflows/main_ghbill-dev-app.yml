@@ -66,13 +66,18 @@ jobs:
         with:
           name: node-app
       
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}  # must be set in repo secrets
+      
       - name: Get secrets from Azure Key Vault
         id: keyvault
         uses: azure/azure-keyvault-secrets@v1
         with:
-          keyvault: ${{ secrets.KEYVAULT_NAME }} # deve estar configurado nos segredos do repositório
+          keyvault: ${{ secrets.KEYVAULT_NAME }}  # must be set in repo secrets
           secrets: AZUREAPPSERVICE_CLIENTID,AZUREAPPSERVICE_TENANTID,AZUREAPPSERVICE_SUBSCRIPTIONID
-
+      
       - name: Validate retrieved secrets
         run: |
           if [ -z "${{ steps.keyvault.outputs.AZUREAPPSERVICE_CLIENTID }}" ] || \
@@ -82,14 +87,7 @@ jobs:
             exit 1
           fi
           echo "Secrets retrieved successfully"
-
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ steps.keyvault.outputs.AZUREAPPSERVICE_CLIENTID }}
-          tenant-id: ${{ steps.keyvault.outputs.AZUREAPPSERVICE_TENANTID }}
-          subscription-id: ${{ steps.keyvault.outputs.AZUREAPPSERVICE_SUBSCRIPTIONID }}
-
+          
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
