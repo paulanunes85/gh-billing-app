@@ -236,13 +236,104 @@ Após a implantação dos recursos, você precisa concluir a configuração segu
 
 Para configurar a autenticação OIDC para o GitHub Actions, siga os passos abaixo:
 
-1. **Nome da Credencial:** `GitHub_Actions_OIDC_Credential`
-2. **Descrição:** `Federated credential for GitHub Actions to authenticate using OIDC for the gh-billing-app repository.`
-3. **Issuer:** `https://token.actions.githubusercontent.com`
-4. **Subject:** `repo:<your-github-username>/gh-billing-app:ref:refs/heads/main`
-5. **Audience:** `api://AzureADTokenExchange`
+### 1. Configuração no Azure Portal
 
-Certifique-se de substituir `<your-github-username>` pelo seu nome de usuário do GitHub.
+1. Acesse o Portal do Azure e navegue até o Azure Active Directory
+2. Vá para "App registrations" e selecione o aplicativo registrado para seu projeto
+3. No menu lateral, clique em "Certificates & secrets"
+4. Selecione a aba "Federated credentials"
+5. Clique em "Add credential"
+6. Selecione "GitHub Actions deploying Azure resources" como cenário
+7. Configure as credenciais federadas com os seguintes valores:
+
+#### Para Branch (main):
+- **Nome da Credencial:** `GitHub_Actions_OIDC_Branch_Credential`
+- **Descrição:** `Federated credential for GitHub Actions to authenticate using OIDC for the gh-billing-app repository main branch.`
+- **Issuer:** `https://token.actions.githubusercontent.com`
+- **Subject:** `repo:<seu-usuario-github>/gh-billing-app:ref:refs/heads/main`
+- **Audience:** `api://AzureADTokenExchange`
+
+#### Para Ambiente (Production):
+- **Nome da Credencial:** `Production-Environment-Credential`
+- **Descrição:** `Federated credential for GitHub Actions to authenticate using OIDC for the gh-billing-app repository Production environment.`
+- **Issuer:** `https://token.actions.githubusercontent.com`
+- **Subject:** `repo:<seu-usuario-github>/gh-billing-app:environment:Production`
+- **Audience:** `api://AzureADTokenExchange`
+
+Certifique-se de substituir `<seu-usuario-github>` pelo seu nome de usuário do GitHub.
+
+### 2. Configuração no GitHub
+
+1. Acesse as configurações do seu repositório no GitHub
+2. Vá para "Settings" > "Secrets and variables" > "Actions"
+3. Adicione os seguintes secrets:
+   - `AZURE_CLIENT_ID`: ID do cliente da aplicação registrada no Azure AD
+   - `AZURE_TENANT_ID`: ID do tenant do Azure AD
+   - `AZURE_SUBSCRIPTION_ID`: ID da assinatura do Azure
+
+### 3. Configuração do Workflow do GitHub Actions
+
+Seu arquivo de workflow deve incluir as seguintes configurações:
+
+```yaml
+name: Build and deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# Permissões necessárias no nível do workflow
+permissions:
+  id-token: write  # Necessário para autenticação OIDC
+  contents: read
+
+jobs:
+  build:
+    # Configuração do job de build
+    # ...
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    # Permissões necessárias no nível do job
+    permissions:
+      id-token: write  # Necessário para autenticação OIDC
+      contents: read
+    # Configuração de ambiente (necessário para credencial federada de ambiente)
+    environment:
+      name: 'Production'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+    
+    steps:
+      # ...
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      # ...
+```
+
+### 4. Troubleshooting
+
+Se você encontrar erros relacionados à autenticação federada, verifique:
+
+1. **Problemas com o Subject**: Certifique-se de que o valor do Subject na credencial federada corresponda exatamente ao formato usado pelo GitHub Actions:
+   - Para branches: `repo:<usuario>/<repo>:ref:refs/heads/<branch>`
+   - Para ambientes: `repo:<usuario>/<repo>:environment:<ambiente>`
+   - Para pull requests: `repo:<usuario>/<repo>:pull_request`
+
+2. **Erros comuns**:
+   - `AADSTS700213`: Indica que não foi encontrada uma credencial federada correspondente. Verifique o valor do Subject.
+   - `Error: The process '/usr/bin/az' failed with exit code 1`: Verifique as permissões do workflow e os segredos configurados.
+
+3. **Verificação das credenciais**:
+   ```bash
+   az ad app federated-credential list --id $(az ad app list --display-name "<nome-do-app>" --query "[0].id" -o tsv)
+   ```
 
 Para mais detalhes, consulte a [documentação oficial](https://learn.microsoft.com/entra/workload-id/workload-identity-federation).
 

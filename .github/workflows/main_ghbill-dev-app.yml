@@ -40,6 +40,18 @@ jobs:
 
       - name: Create deployment package
         run: |
+          # Criar arquivo de inicialização personalizado
+          echo "#!/bin/bash" > custom_startup.sh
+          echo "cd /home/site/wwwroot" >> custom_startup.sh
+          echo "npm install --production" >> custom_startup.sh
+          echo "node src/index.js" >> custom_startup.sh
+          chmod +x custom_startup.sh
+          
+          # Garantir que o package.json tenha as configurações corretas
+          echo "Verificando configurações no package.json..."
+          grep -q '"start"' package.json || echo "Erro: Configuração de start não encontrada"
+          
+          # Criar o pacote ZIP para implantação
           zip -r release.zip . \
             --exclude=".git/*" \
             --exclude=".github/*" \
@@ -76,6 +88,17 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       
+      - name: Clean App Service settings before deployment
+        run: |
+          az webapp config appsettings set --name ghbill-dev-app --resource-group ghbilling-rg --settings \
+            COMMAND="" \
+            PM2_RUNTIME_OPTIONS="" \
+            WEBSITE_RUN_FROM_PACKAGE="1"
+
+      - name: Configure App Service startup command
+        run: |
+          az webapp config set --name ghbill-dev-app --resource-group ghbilling-rg --startup-file "node src/index.js"
+      
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
@@ -84,7 +107,7 @@ jobs:
           slot-name: 'Production'
           package: release.zip
 
-      - name: Configure App Service
+      - name: Configure App Service settings
         run: |
           az webapp config appsettings set \
             --resource-group "ghbilling-rg" \
