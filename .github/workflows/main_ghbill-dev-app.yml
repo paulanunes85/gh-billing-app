@@ -51,7 +51,7 @@ jobs:
           node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json')); pkg.scripts = pkg.scripts || {}; pkg.scripts.start = 'node src/index.js'; fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
           
           # Criar web.config para Azure
-          cat > web.config << EOF
+          cat > web.config << 'EOFWEBCONFIG'
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
   <system.webServer>
@@ -83,10 +83,11 @@ jobs:
     <httpErrors existingResponse="PassThrough" />
   </system.webServer>
 </configuration>
-EOF
+EOFWEBCONFIG
           
           # Criar .deployment para Azure
-          echo -e "[config]\ncommand = bash startup.sh" > .deployment
+          echo "[config]" > .deployment
+          echo "command = bash startup.sh" >> .deployment
           
           # Verificar que o package.json tem a configuração de porta
           echo "Verificando package.json:"
@@ -134,22 +135,15 @@ EOF
           echo "Configurando App Service para implantação..."
           
           # Configura variáveis importantes
-          az webapp config appsettings set --name ghbill-dev-app --resource-group ghbilling-rg --settings \
-            WEBSITES_PORT=8080 \
-            PORT=8080 \
-            WEBSITE_NODE_DEFAULT_VERSION="~18" \
-            NODE_ENV="production" \
-            SCM_DO_BUILD_DURING_DEPLOYMENT="false" \
-            WEBSITE_RUN_FROM_PACKAGE="1"
+          az webapp config appsettings set --name ghbill-dev-app --resource-group ghbilling-rg --settings WEBSITES_PORT=8080 PORT=8080 WEBSITE_NODE_DEFAULT_VERSION="~18" NODE_ENV="production" SCM_DO_BUILD_DURING_DEPLOYMENT="false" WEBSITE_RUN_FROM_PACKAGE="1"
           
           # Remove configurações problemáticas
-          az webapp config appsettings set --name ghbill-dev-app --resource-group ghbilling-rg \
-            --settings COMMAND="" PM2_RUNTIME_OPTIONS=""
+          az webapp config appsettings set --name ghbill-dev-app --resource-group ghbilling-rg --settings COMMAND="" PM2_RUNTIME_OPTIONS=""
           
           # Configura comando de inicialização
           az webapp config set --name ghbill-dev-app --resource-group ghbilling-rg --startup-file "node src/index.js"
       
-      - name: 'Deploy to Azure Web App'
+      - name: Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
