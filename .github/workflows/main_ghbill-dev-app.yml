@@ -1,7 +1,7 @@
 # Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 
-name: Build and deploy Node.js app to Azure Web App - ghbill-dev-app
+name: Build and deploy Node.js app to Azure Web App
 
 on:
   push:
@@ -38,57 +38,61 @@ jobs:
           GITHUB_CLIENT_SECRET: "placeholder-for-build"
           MONGODB_URI: "placeholder-for-build"
 
-      - name: Create deployment package
+      - name: Prepare startup script and configuration files
         run: |
-          # Criar arquivo de inicialização personalizado
+          # Startup script
           echo "#!/bin/bash" > startup.sh
           echo "cd /home/site/wwwroot" >> startup.sh
           echo "echo 'Starting application...'" >> startup.sh
           echo "node src/index.js" >> startup.sh
           chmod +x startup.sh
           
-          # Adicionar configuração para a porta 8080 no package.json
+          # Update package.json
           node -e "const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json')); pkg.scripts = pkg.scripts || {}; pkg.scripts.start = 'node src/index.js'; fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
           
-          # Criar web.config para Azure
-          cat > web.config << 'EOFWEBCONFIG'
-<?xml version="1.0" encoding="utf-8"?>
-<configuration>
-  <system.webServer>
-    <handlers>
-      <add name="iisnode" path="src/index.js" verb="*" modules="iisnode" />
-    </handlers>
-    <rewrite>
-      <rules>
-        <rule name="NodeInspector" patternSyntax="ECMAScript" stopProcessing="true">
-          <match url="^src/index.js\/debug[\/]?" />
-        </rule>
-        <rule name="StaticContent">
-          <action type="Rewrite" url="public{REQUEST_URI}" />
-        </rule>
-        <rule name="DynamicContent">
-          <conditions>
-            <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="True" />
-          </conditions>
-          <action type="Rewrite" url="src/index.js" />
-        </rule>
-      </rules>
-    </rewrite>
-    <iisnode 
-      nodeProcessCommandLine="node"
-      watchedFiles="*.js;node_modules\*;routes\*.js;views\*.ejs"
-      loggingEnabled="true"
-      debuggingEnabled="false"
-    />
-    <httpErrors existingResponse="PassThrough" />
-  </system.webServer>
-</configuration>
-EOFWEBCONFIG
-          
-          # Criar .deployment para Azure
+          # Create .deployment file
           echo "[config]" > .deployment
           echo "command = bash startup.sh" >> .deployment
+
+      - name: Create web.config
+        run: |
+          echo '<?xml version="1.0" encoding="utf-8"?>' > web.config
+          echo '<configuration>' >> web.config
+          echo '  <system.webServer>' >> web.config
+          echo '    <handlers>' >> web.config
+          echo '      <add name="iisnode" path="src/index.js" verb="*" modules="iisnode" />' >> web.config
+          echo '    </handlers>' >> web.config
+          echo '    <rewrite>' >> web.config
+          echo '      <rules>' >> web.config
+          echo '        <rule name="NodeInspector" patternSyntax="ECMAScript" stopProcessing="true">' >> web.config
+          echo '          <match url="^src/index.js\/debug[\/]?" />' >> web.config
+          echo '        </rule>' >> web.config
+          echo '        <rule name="StaticContent">' >> web.config
+          echo '          <action type="Rewrite" url="public{REQUEST_URI}" />' >> web.config
+          echo '        </rule>' >> web.config
+          echo '        <rule name="DynamicContent">' >> web.config
+          echo '          <conditions>' >> web.config
+          echo '            <add input="{REQUEST_FILENAME}" matchType="IsFile" negate="True" />' >> web.config
+          echo '          </conditions>' >> web.config
+          echo '          <action type="Rewrite" url="src/index.js" />' >> web.config
+          echo '        </rule>' >> web.config
+          echo '      </rules>' >> web.config
+          echo '    </rewrite>' >> web.config
+          echo '    <iisnode ' >> web.config
+          echo '      nodeProcessCommandLine="node"' >> web.config
+          echo '      watchedFiles="*.js;node_modules\*;routes\*.js;views\*.ejs"' >> web.config
+          echo '      loggingEnabled="true"' >> web.config
+          echo '      debuggingEnabled="false"' >> web.config
+          echo '    />' >> web.config
+          echo '    <httpErrors existingResponse="PassThrough" />' >> web.config
+          echo '  </system.webServer>' >> web.config
+          echo '</configuration>' >> web.config
           
+          # Verificar o conteúdo do web.config
+          cat web.config
+
+      - name: Create deployment package
+        run: |
           # Verificar que o package.json tem a configuração de porta
           echo "Verificando package.json:"
           cat package.json
@@ -130,17 +134,25 @@ EOFWEBCONFIG
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       
-      - name: Configure App Service pre-deployment
+      - name: Configure App Service
         run: |
           echo "Configurando App Service para implantação..."
           
-          # Configura variáveis importantes
-          az webapp config appsettings set --name ghbill-dev-app --resource-group ghbilling-rg --settings WEBSITES_PORT=8080 PORT=8080 WEBSITE_NODE_DEFAULT_VERSION="~18" NODE_ENV="production" SCM_DO_BUILD_DURING_DEPLOYMENT="false" WEBSITE_RUN_FROM_PACKAGE="1"
+          # Configurar variáveis de ambiente
+          az webapp config appsettings set \
+            --name ghbill-dev-app \
+            --resource-group ghbilling-rg \
+            --settings \
+              WEBSITES_PORT=8080 \
+              PORT=8080 \
+              WEBSITE_NODE_DEFAULT_VERSION="~18" \
+              NODE_ENV="production" \
+              SCM_DO_BUILD_DURING_DEPLOYMENT="false" \
+              WEBSITE_RUN_FROM_PACKAGE="1" \
+              COMMAND="" \
+              PM2_RUNTIME_OPTIONS=""
           
-          # Remove configurações problemáticas
-          az webapp config appsettings set --name ghbill-dev-app --resource-group ghbilling-rg --settings COMMAND="" PM2_RUNTIME_OPTIONS=""
-          
-          # Configura comando de inicialização
+          # Configurar comando de inicialização
           az webapp config set --name ghbill-dev-app --resource-group ghbilling-rg --startup-file "node src/index.js"
       
       - name: Deploy to Azure Web App
@@ -155,15 +167,22 @@ EOFWEBCONFIG
         run: |
           echo "Configurando App Service após implantação..."
           
-          # Reinicia a aplicação para aplicar configurações
+          # Reiniciar a aplicação
           az webapp restart --name ghbill-dev-app --resource-group ghbilling-rg
           
-          # Espera um pouco para o app iniciar
+          # Aguardar inicialização da aplicação
+          echo "Aguardando 30 segundos para inicialização da aplicação..."
           sleep 30
           
-          # Verifica se a aplicação está respondendo
+          # Verificar se a aplicação está respondendo
           echo "Verificando se a aplicação está respondendo..."
           curl -s -o /dev/null -w "%{http_code}" https://ghbill-dev-app.azurewebsites.net/ping || echo "Não foi possível acessar a aplicação"
           
-          # Habilita logs detalhados
-          az webapp log config --name ghbill-dev-app --resource-group ghbilling-rg --application-logging filesystem --detailed-error-messages true --failed-request-tracing true --web-server-logging filesystem
+          # Configurar logs detalhados
+          az webapp log config \
+            --name ghbill-dev-app \
+            --resource-group ghbilling-rg \
+            --application-logging filesystem \
+            --detailed-error-messages true \
+            --failed-request-tracing true \
+            --web-server-logging filesystem
