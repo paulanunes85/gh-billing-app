@@ -232,7 +232,11 @@ async function initializeApp() {
 
     // Conectar ao banco de dados e iniciar o servidor
     await Database.connect();
-    const PORT = process.env.PORT || 3000;
+    
+    // No Azure App Service, a aplicação deve escutar na porta 8080
+    // Em outros ambientes, usamos a PORT do ambiente ou 3000 como padrão
+    const PORT = process.env.WEBSITES_PORT || process.env.PORT || 8080;
+    
     const server = app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
       console.log(`Environment: ${process.env.NODE_ENV}`);
