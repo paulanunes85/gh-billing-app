@@ -143,9 +143,8 @@ EOF
             WEBSITE_RUN_FROM_PACKAGE="1"
           
           # Remove configurações problemáticas
-          az webapp config appsettings set --name ghbill-dev-app --resource-group ghbilling-rg --settings \
-            COMMAND="" \
-            PM2_RUNTIME_OPTIONS=""
+          az webapp config appsettings set --name ghbill-dev-app --resource-group ghbilling-rg \
+            --settings COMMAND="" PM2_RUNTIME_OPTIONS=""
           
           # Configura comando de inicialização
           az webapp config set --name ghbill-dev-app --resource-group ghbilling-rg --startup-file "node src/index.js"
