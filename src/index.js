@@ -34,11 +34,22 @@ dotenv.config();
 // Função assíncrona para inicializar a aplicação
 async function initializeApp() {
   try {
+    // Verificação completa de porta para compatibilidade com Azure App Service
+    console.log('Iniciando aplicativo...');
+    console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
+    console.log(`WEBSITES_PORT: ${process.env.WEBSITES_PORT}`);
+    console.log(`PORT: ${process.env.PORT}`);
+    
     // Carregar segredos do Key Vault em produção
     if (process.env.NODE_ENV === 'production' && process.env.AZURE_KEY_VAULT_NAME) {
       console.log('Carregando segredos do Azure Key Vault...');
-      await keyVault.loadSecrets();
-      console.log('Segredos carregados com sucesso');
+      try {
+        await keyVault.loadSecrets();
+        console.log('Segredos carregados com sucesso');
+      } catch (keyVaultError) {
+        console.error('Erro ao carregar segredos do Key Vault:', keyVaultError);
+        console.log('Continuando com variáveis de ambiente...');
+      }
     } else {
       console.log('Usando variáveis de ambiente locais (modo desenvolvimento)');
     }
@@ -126,7 +137,15 @@ async function initializeApp() {
     // Health check endpoint for Azure
     app.get('/health', async (req, res) => {
       try {
-        const dbHealth = await Database.healthCheck();
+        console.log('Health check endpoint called');
+        let dbHealth = false;
+        try {
+          dbHealth = await Database.healthCheck();
+          console.log('Database health check result:', dbHealth);
+        } catch (dbError) {
+          console.error('Database health check error:', dbError);
+        }
+        
         const keyVaultHealth = process.env.NODE_ENV === 'production' ? 
           Boolean(process.env.AZURE_KEY_VAULT_NAME) : true;
 
@@ -135,16 +154,25 @@ async function initializeApp() {
           timestamp: new Date().toISOString(),
           database: dbHealth ? 'connected' : 'disconnected',
           keyVault: keyVaultHealth ? 'configured' : 'not configured',
-          version: process.env.npm_package_version
+          version: process.env.npm_package_version || 'unknown',
+          environment: process.env.NODE_ENV || 'unknown'
         });
       } catch (error) {
+        console.error('Health check error:', error);
         res.status(500).json({
           status: 'unhealthy',
           timestamp: new Date().toISOString(),
           database: 'error',
-          message: process.env.NODE_ENV === 'production' ? 'Internal server error' : error.message
+          message: process.env.NODE_ENV === 'production' ? 'Internal server error' : error.message,
+          error: process.env.NODE_ENV === 'production' ? undefined : error.stack
         });
       }
+    });
+    
+    // Rota simples para verificar se o aplicativo está respondendo
+    app.get('/ping', (req, res) => {
+      console.log('Ping endpoint called');
+      res.status(200).send('pong');
     });
 
     // Configurando pasta de arquivos estáticos com cache para produção
@@ -230,15 +258,26 @@ async function initializeApp() {
       }
     });
 
-    // Conectar ao banco de dados e iniciar o servidor
-    await Database.connect();
+    try {
+      // Conectar ao banco de dados
+      console.log('Tentando conectar ao banco de dados...');
+      await Database.connect();
+      console.log('Conexão com o banco de dados estabelecida com sucesso!');
+    } catch (dbError) {
+      console.error('Erro ao conectar ao banco de dados:', dbError);
+      // Não encerra a aplicação em caso de falha na conexão com o banco de dados
+      // Em produção, permitimos que a aplicação inicie mesmo com falha no banco
+      if (process.env.NODE_ENV !== 'production') {
+        throw dbError;
+      }
+    }
     
     // No Azure App Service, a aplicação deve escutar na porta 8080
     // Em outros ambientes, usamos a PORT do ambiente ou 3000 como padrão
     const PORT = process.env.WEBSITES_PORT || process.env.PORT || 8080;
     
-    const server = app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on 0.0.0.0:${PORT}`);
       console.log(`Environment: ${process.env.NODE_ENV}`);
     });
 
@@ -262,9 +301,30 @@ async function initializeApp() {
   } catch (error) {
     console.error('Falha ao inicializar a aplicação:', error.message);
     console.error(error.stack);
-    process.exit(1);
+    
+    // Registrar no Application Insights se disponível
+    if (process.env.APPLICATIONINSIGHTS_CONNECTION_STRING) {
+      try {
+        const appInsights = require('applicationinsights');
+        appInsights.defaultClient.trackException({ exception: error });
+      } catch (aiError) {
+        console.error('Erro ao registrar no Application Insights:', aiError);
+      }
+    }
+    
+    // Em produção, não encerramos o processo para permitir que o Azure App Service reinicie
+    if (process.env.NODE_ENV !== 'production') {
+      process.exit(1);
+    }
   }
 }
 
 // Iniciar a aplicação
-initializeApp();
+console.log('Iniciando processo de inicialização...');
+initializeApp().catch(error => {
+  console.error('Erro não tratado na inicialização:', error);
+  // Em produção, não encerramos o processo para permitir que o Azure tente novamente
+  if (process.env.NODE_ENV !== 'production') {
+    process.exit(1);
+  }
+});
